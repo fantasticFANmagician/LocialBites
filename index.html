@@ -38,10 +38,10 @@
                         };
                         map.setCenter(userLocation);
                         addUserMarker(userLocation);
-                        searchRestaurants(); // Initial search
+                        searchRestaurants(); 
                     },
                     () => {
-                        // Fallback to default location
+                        
                         userLocation = defaultLocation;
                         searchRestaurants();
                     }
