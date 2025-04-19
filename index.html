@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>LocalBites - Neighborhood Restaurant Explorer</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+  <style>
+    html,
+    body {
+      margin: 0;
+      height: 100%;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    #background-carousel {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: -1;
+      overflow: hidden;
+    }
+
+    #background-carousel img {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0;
+      transition: opacity 2s ease-in-out;
+    }
+
+    #background-carousel img.active {
+      opacity: 1;
+    }
+
+    #map {
+      height: 100%;
+      width: 100%;
+      display: none;
+      transition: opacity 0.5s ease-in-out;
+    }
+
+    h1 {
+      position: absolute;
+      z-index: 1000;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #ff7043;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      display: none;
+      opacity: 0;
+      transition: opacity 0.5s ease-in-out;
+    }
+
+    #login-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      backdrop-filter: brightness(0.9);
+      border-radius: 20px;
+      max-width: 420px;
+      margin: auto;
+      background-color: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      padding: 40px 30px;
+      transition: transform 0.5s ease, opacity 0.5s ease;
+    }
+
+    #login-container h2 {
+      margin-bottom: 10px;
+      color: #333;
+      font-size: 28px;
+    }
+
+    #login-container p {
+      margin-bottom: 20px;
+      color: #555;
+      font-size: 14px;
+      text-align: center;
+    }
+
+    #login-container input {
+      margin: 10px 0;
+      padding: 12px;
+      width: 100%;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 16px;
+      transition: border-color 0.3s;
+    }
+
+    #login-container input:focus {
+      border-color: #ff7043;
+      outline: none;
+    }
+
+    #login-container button {
+      margin-top: 15px;
+      padding: 12px;
+      width: 100%;
+      background-color: #ff7043;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.2s;
+    }
+
+    #login-container button:hover {
+      background-color: #f4511e;
+      transform: scale(1.02);
+    }
+
+    .rating-stars button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 18px;
+      transition: transform 0.2s;
+    }
+
+    .rating-stars button:hover {
+      transform: scale(1.2);
+    }
+
+    .user-location-marker {
+      background: transparent;
+      border: none;
+    }
+
+    .user-location-marker {
+      background: transparent;
+      border: none;
+      font-size: 30px;
+      line-height: 1;  
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="background-carousel">
+    <img src="https://cdn.drop.media/localbites-app/4bc84626-6348-4167-a21d-0fa195782908.jpeg" />
+    <img src="https://cdn.drop.media/localbites-app/4242a0be-ff4f-40e6-b309-2d01be3e904c.jpeg" />
+    <img src="https://cdn.drop.media/localbites-app/c9f7effa-d919-4293-bf8c-1d8ccdcda269.jpeg" />
+    <img src="https://cdn.drop.media/localbites-app/4e3e4c7f-3028-4e5c-a185-10e26f0706e2.jpeg" />
+    <img src="https://cdn.drop.media/localbites-app/6f597dd7-c241-4b60-9305-366e2ce0acf5.jpeg" />
+    <img src="https://cdn.drop.media/localbites-app/a8554f59-ef50-4fd8-b4fd-a6c2f95dae0d.jpeg" />
+    <img src="https://cdn.drop.media/localbites-app/99f5591d-024d-4b2e-9f1d-f853bea85e2b.jpeg" />
+    <img src="https://cdn.drop.media/localbites-app/571d65b4-8105-4a72-9214-17e576bf3e17.jpeg" />
+  </div>
+
+  <h1 id="header">🍴 LocalBites - Neighborhood Restaurant Explorer</h1>
+  <div id="login-container">
+    <h2>LocalBites - Neighborhood Restaurant Explorer</h2>
+    <p>A web app that helps users discover nearby restaurants using geolocation, with filters for dietary needs and
+      price range. Users can save favorites and leave quick ratings.</p>
+    <input type="text" id="username" placeholder="Username" />
+    <input type="password" id="password" placeholder="Password" />
+    <button onclick="login()">Login</button>
+  </div>
+  <div id="map"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCg-LBaiDXSsTCg2_k-aZyy4Oqay2Z2Ozg",
+      authDomain: "localbites-2025-c31a4.firebaseapp.com",
+      projectId: "localbites-2025-c31a4",
+      storageBucket: "localbites-2025-c31a4.firebasestorage.app",
+      messagingSenderId: "927978421503",
+      appId: "1:927978421503:web:310eaa5c33e972c51260ca"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    function login() {
+      const username = document.getElementById("username").value;
+      const password = document.getElementById("password").value;
+      const email = `${username}@example.com`;
+
+      auth.signInWithEmailAndPassword(email, password)
+        .then(() => {
+          const loginEl = document.getElementById("login-container");
+          loginEl.style.opacity = 0;
+          setTimeout(() => loginEl.style.display = "none", 500);
+          const mapEl = document.getElementById("map");
+          mapEl.style.display = "block";
+          mapEl.style.opacity = 1;
+
+          const header = document.getElementById("header");
+          header.style.display = "block";
+          header.style.opacity = 1;
+
+          loadMap();
+        })
+        .catch(error => alert("Login failed: " + error.message));
+    }
+
+    function submitRating(placeId, rating) {
+      const user = auth.currentUser;
+      if (!user) return alert("Login required");
+
+      db.collection("ratings").add({
+        userId: user.uid,
+        placeId,
+        rating,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      }).then(() => {
+        alert("Thanks for your rating!");
+      }).catch(err => {
+        console.error("Rating error:", err);
+        alert("Rating failed.");
+      });
+    }
+
+    function getUserLocation(map) {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const userLat = position.coords.latitude;
+            const userLng = position.coords.longitude;
+
+
+            const userIcon = L.divIcon({
+              className: 'user-location-marker',
+              html: '📍',
+              iconSize: [40, 40]
+            });
+
+            L.marker([userLat, userLng], { icon: userIcon })
+              .addTo(map)
+              .bindPopup("You are here!")
+              .openPopup();
+
+
+            map.setView([userLat, userLng], 14);
+          },
+          (error) => {
+            console.error("Geolocation error:", error);
+            alert("Could not get your location. Using default view.");
+          }
+        );
+      } else {
+        alert("Geolocation is not supported by this browser.");
+      }
+    }
+
+    function loadMap() {
+      const map = L.map('map').setView([10.6918, -61.2225], 11);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      getUserLocation(map);
+
+      const overpassUrl = 'https://overpass-api.de/api/interpreter';
+      const query = `
+      [out:json][timeout:25];
+      area["name"="Trinidad and Tobago"]->.searchArea;
+      (
+        node["amenity"="restaurant"](area.searchArea);
+        way["amenity"="restaurant"](area.searchArea);
+        relation["amenity"="restaurant"](area.searchArea);
+        node["amenity"="fast_food"](area.searchArea);
+        way["amenity"="fast_food"](area.searchArea);
+        relation["amenity"="fast_food"](area.searchArea);
+        node["amenity"="food_court"](area.searchArea);
+        way["amenity"="food_court"](area.searchArea);
+        relation["amenity"="food_court"](area.searchArea);
+      );
+      out center;
+    `;
+
+      fetch(overpassUrl, {
+        method: 'POST',
+        body: query
+      })
+        .then(response => response.json())
+        .then(data => {
+          const places = data.elements;
+
+          places.forEach(place => {
+            const lat = place.lat || (place.center && place.center.lat);
+            const lon = place.lon || (place.center && place.center.lon);
+
+            if (lat && lon && place.tags?.name) {
+              const name = place.tags.name;
+              const type = place.tags.amenity === "fast_food" ? "🍔 Fast Food" :
+                place.tags.amenity === "food_court" ? "🍽️ Food Court" :
+                  "🍴 Restaurant";
+              L.marker([lat, lon])
+                .addTo(map)
+                .bindPopup(`${name} <br>${type}`);
+            }
+          });
+        }).catch(error => {
+          console.error("Map loading error:", error);
+        });
+    }
+
+    function carousel() {
+      const images = document.querySelectorAll('#background-carousel img');
+      let currentIndex = 0;
+
+
+      images[currentIndex].classList.add('active');
+
+      setInterval(() => {
+        images.forEach(img => img.classList.remove('active'));
+        currentIndex = (currentIndex + 1) % images.length;
+        images[currentIndex].classList.add('active');
+      }, 4000);
+    }
+
+    carousel();
+  </script>
+</body>
+
+</html>
